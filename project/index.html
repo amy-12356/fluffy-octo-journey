@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV数据可视化工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            text-align: center;
+            margin-bottom: 30px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .upload-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #667eea;
+            background-color: #f8f9ff;
+        }
+
+        .upload-area input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-value.currency {
+            color: #28a745;
+        }
+
+        .stat-value.volume {
+            color: #ff6b6b;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            margin-bottom: 30px;
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+
+        .data-table-container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            overflow-x: auto;
+        }
+
+        .table-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8f9ff;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .stats-summary {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            margin-bottom: 30px;
+        }
+
+        .stats-summary h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .stats-summary table {
+            width: 100%;
+        }
+
+        .stats-summary td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .stats-summary td:first-child {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .stats-summary td:last-child {
+            text-align: right;
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .upload-section {
+                padding: 20px;
+            }
+
+            .upload-area {
+                padding: 20px;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 CSV数据可视化工具</h1>
+            <p>上传CSV文件，自动分析统计量并生成图表</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">点击或拖拽CSV文件到此处</div>
+                <div class="upload-hint">支持 .csv 文件，建议包含日期、开盘价、最高价、最低价、收盘价、成交量等列</div>
+                <input type="file" id="fileInput" accept=".csv">
+            </div>
+            
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">总记录数</div>
+                    <div class="stat-value" id="statCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">日期范围</div>
+                    <div class="stat-value" id="statDateRange">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">平均收盘价</div>
+                    <div class="stat-value currency" id="statAvgClose">0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">平均成交量</div>
+                    <div class="stat-value volume" id="statAvgVolume">0</div>
+                </div>
+            </div>
+
+            <div class="stats-summary">
+                <h3>📈 详细统计量</h3>
+                <table id="summaryTable">
+                    <tbody id="summaryBody"></tbody>
+                </table>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">📉 收盘价走势图</div>
+                <div class="chart-wrapper">
+                    <canvas id="closePriceChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">📊 价格范围图 (OHLC)</div>
+                <div class="chart-wrapper">
+                    <canvas id="ohlcChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">📦 成交量柱状图</div>
+                <div class="chart-wrapper">
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </div>
+
+            <div class="data-table-container">
+                <div class="table-title">📋 数据预览 (前20行)</div>
+                <table id="dataTable">
+                    <thead id="tableHeader"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+
+            <button class="btn" onclick="resetUpload()">重新上传</button>
+        </div>
+    </div>
+
+    <script>
+        let closePriceChart = null;
+        let ohlcChart = null;
+        let volumeChart = null;
+
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('uploadArea').addEventListener('dragover', handleDragOver);
+        document.getElementById('uploadArea').addEventListener('dragleave', handleDragLeave);
+        document.getElementById('uploadArea').addEventListener('drop', handleDrop);
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('uploadArea').classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('uploadArea').classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('uploadArea').classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            if (!file.name.endsWith('.csv')) {
+                showError('请上传CSV格式的文件');
+                return;
+            }
+
+            showProgress(true);
+            hideError();
+            hideSuccess();
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csvData = e.target.result;
+                    const data = parseCSV(csvData);
+                    analyzeData(data);
+                    showSuccess(`成功解析文件: ${file.name} (${data.length} 条记录)`);
+                    showProgress(false);
+                } catch (error) {
+                    showError(`解析失败: ${error.message}`);
+                    showProgress(false);
+                }
+            };
+            reader.onerror = function() {
+                showError('读取文件失败');
+                showProgress(false);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim() !== '');
+            if (lines.length < 2) {
+                throw new Error('CSV文件至少需要包含表头和一行数据');
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index] ? values[index].trim() : '';
+                });
+                data.push(row);
+            }
+
+            return data;
+        }
+
+        function analyzeData(data) {
+            const numericCols = ['open', 'high', 'low', 'close', 'volume'];
+            const dateCol = 'date';
+
+            // 转换数据类型
+            const processedData = data.map(row => {
+                const newRow = { ...row };
+                if (row[dateCol]) {
+                    newRow[dateCol] = new Date(row[dateCol]);
+                }
+                numericCols.forEach(col => {
+                    if (row[col]) {
+                        newRow[col] = parseFloat(row[col]);
+                    }
+                });
+                return newRow;
+            }).filter(row => !isNaN(row.close));
+
+            // 按日期排序
+            processedData.sort((a, b) => a[dateCol] - b[dateCol]);
+
+            // 计算统计量
+            const closes = processedData.map(d => d.close);
+            const volumes = processedData.map(d => d.volume);
+            const highs = processedData.map(d => d.high);
+            const lows = processedData.map(d => d.low);
+            const opens = processedData.map(d => d.open);
+
+            const stats = {
+                count: processedData.length,
+                dateMin: processedData[0][dateCol],
+                dateMax: processedData[processedData.length - 1][dateCol],
+                close: {
+                    mean: calculateMean(closes),
+                    median: calculateMedian(closes),
+                    std: calculateStd(closes),
+                    min: Math.min(...closes),
+                    max: Math.max(...closes),
+                    var: calculateVariance(closes)
+                },
+                volume: {
+                    mean: calculateMean(volumes),
+                    median: calculateMedian(volumes),
+                    std: calculateStd(volumes),
+                    min: Math.min(...volumes),
+                    max: Math.max(...volumes)
+                }
+            };
+
+            // 更新UI
+            updateStats(stats);
+            updateSummaryTable(stats);
+            updateDataPreview(processedData);
+            renderCharts(processedData);
+
+            // 显示结果区域
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function calculateMean(arr) {
+            return arr.reduce((a, b) => a + b, 0) / arr.length;
+        }
+
+        function calculateMedian(arr) {
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+
+        function calculateVariance(arr) {
+            const mean = calculateMean(arr);
+            return arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / arr.length;
+        }
+
+        function calculateStd(arr) {
+            return Math.sqrt(calculateVariance(arr));
+        }
+
+        function updateStats(stats) {
+            document.getElementById('statCount').textContent = stats.count.toLocaleString();
+            document.getElementById('statDateRange').textContent = 
+                `${formatDate(stats.dateMin)} ~ ${formatDate(stats.dateMax)}`;
+            document.getElementById('statAvgClose').textContent = `$${stats.close.mean.toFixed(2)}`;
+            document.getElementById('statAvgVolume').textContent = stats.volume.mean.toLocaleString();
+        }
+
+        function updateSummaryTable(stats) {
+            const tbody = document.getElementById('summaryBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td>收盘价均值</td>
+                    <td>$${stats.close.mean.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>收盘价中位数</td>
+                    <td>$${stats.close.median.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>收盘价标准差</td>
+                    <td>$${stats.close.std.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>收盘价方差</td>
+                    <td>$${stats.close.var.toFixed(4)}</td>
+                </tr>
+                <tr>
+                    <td>收盘价最小值</td>
+                    <td>$${stats.close.min.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>收盘价最大值</td>
+                    <td>$${stats.close.max.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>收盘价变异系数</td>
+                    <td>${(stats.close.std / stats.close.mean * 100).toFixed(2)}%</td>
+                </tr>
+                <tr>
+                    <td>成交量均值</td>
+                    <td>${stats.volume.mean.toLocaleString()}</td>
+                </tr>
+                <tr>
+                    <td>成交量中位数</td>
+                    <td>${stats.volume.median.toLocaleString()}</td>
+                </tr>
+                <tr>
+                    <td>成交量标准差</td>
+                    <td>${stats.volume.std.toLocaleString()}</td>
+                </tr>
+            `;
+        }
+
+        function updateDataPreview(data) {
+            const previewData = data.slice(0, 20);
+            const headers = Object.keys(previewData[0]);
+            
+            const thead = document.getElementById('tableHeader');
+            thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = previewData.map(row => `
+                <tr>
+                    ${headers.map(h => `<td>${formatCell(row[h])}</td>`).join('')}
+                </tr>
+            `).join('');
+        }
+
+        function formatCell(value) {
+            if (value instanceof Date) {
+                return formatDate(value);
+            }
+            if (typeof value === 'number') {
+                if (value >= 1000000) {
+                    return value.toLocaleString();
+                }
+                return value.toFixed(4);
+            }
+            return value;
+        }
+
+        function formatDate(date) {
+            const d = new Date(date);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function renderCharts(data) {
+            const labels = data.map(d => formatDate(d.date));
+            const closes = data.map(d => d.close);
+            const highs = data.map(d => d.high);
+            const lows = data.map(d => d.low);
+            const opens = data.map(d => d.open);
+            const volumes = data.map(d => d.volume);
+
+            // 销毁旧图表
+            if (closePriceChart) closePriceChart.destroy();
+            if (ohlcChart) ohlcChart.destroy();
+            if (volumeChart) volumeChart.destroy();
+
+            // 收盘价走势图
+            closePriceChart = new Chart(document.getElementById('closePriceChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '收盘价',
+                        data: closes,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `收盘价: $${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '价格 ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(0);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // OHLC图
+            ohlcChart = new Chart(document.getElementById('ohlcChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '最高价',
+                            data: highs,
+                            backgroundColor: 'rgba(40, 167, 69, 0.6)',
+                            borderColor: '#28a745',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '最低价',
+                            data: lows,
+                            backgroundColor: 'rgba(220, 53, 69, 0.6)',
+                            borderColor: '#dc3545',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '开盘价',
+                            data: opens,
+                            backgroundColor: 'rgba(13, 110, 253, 0.6)',
+                            borderColor: '#0d6efd',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '收盘价',
+                            data: closes,
+                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                            borderColor: '#667eea',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '价格 ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(0);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 成交量图
+            volumeChart = new Chart(document.getElementById('volumeChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '成交量',
+                        data: volumes,
+                        backgroundColor: 'rgba(255, 107, 107, 0.6)',
+                        borderColor: '#ff6b6b',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `成交量: ${context.parsed.y.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '成交量'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) {
+                                        return (value / 1000000).toFixed(1) + 'M';
+                                    }
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showProgress(show) {
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            if (show) {
+                progressBar.style.display = 'block';
+                progressFill.style.width = '50%';
+            } else {
+                progressFill.style.width = '100%';
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    progressFill.style.width = '0%';
+                }, 500);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+
+        function hideSuccess() {
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        function resetUpload() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('resultsSection').style.display = 'none';
+            hideError();
+            hideSuccess();
+        }
+    </script>
+</body>
+</html>
